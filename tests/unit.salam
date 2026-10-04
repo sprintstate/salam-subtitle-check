@@ -7,6 +7,8 @@ include model "../src/model.salam"
 include parser "../src/parser.salam"
 include timing "../src/timing.salam"
 include readability "../src/readability.salam"
+include source "../src/source.salam"
+include cli "../src/cli.salam"
 
 func Count(doc: model.Document, code: str): int:
     mut count := 0
@@ -102,5 +104,24 @@ func main: int:
     testing.AssertEqInt(Count(unicode, "W_WIDTH"), 1)
     testing.AssertEqInt(Count(unicode, "W_CPS"), 1)
     model.Release(unicode)
+    testing.Assert(source.ValidUTF8("Hello Привет 世界 🙂"))
+    normalized := source.Normalize("﻿1\r\ntext\rnext\n")
+    testing.AssertEqStr(normalized, "1\ntext\nnext\n")
+    mem.Free(normalized as void*)
+    mut arguments := Vector {} as Vector<str>
+    arguments.push("subtitle-check")
+    arguments.push("--json")
+    arguments.push("--max-cps")
+    arguments.push("30")
+    arguments.push("--")
+    arguments.push("-file.srt")
+    options := cli.Parse(arguments)
+    testing.AssertEqStr(options.error, "")
+    testing.AssertEqStr(options.path, "-file.srt")
+    testing.AssertEqInt(options.max_cps, 30)
+    testing.Assert(options.json)
+    arguments.push("extra.srt")
+    testing.Assert(cli.Parse(arguments).error != "")
+    arguments.free()
     ret testing.Summary() > 0 ? 1 : 0
 end

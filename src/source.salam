@@ -1,0 +1,82 @@
+package source
+
+import os
+import io
+import str
+import mem
+
+pub struct Input:
+    pub ok: bool = false
+    pub content: str = ""
+    pub error: str = ""
+end
+
+func Byte(bytes: i8*, index: int): int:
+    value := bytes[index] as int
+    ret value < 0 ? value + 256 : value
+end
+
+pub func ValidUTF8(value: str): bool:
+    bytes := (value as void*) as i8*
+    length := value.len()
+    mut i := 0
+    until i < length:
+        a := Byte(bytes, i)
+        mut width := 1
+        if a >= 128:
+            if a >= 194 and a <= 223: width = 2
+            else a >= 224 and a <= 239: width = 3
+            else a >= 240 and a <= 244: width = 4
+            else:
+                ret false end
+            if i + width > length: ret false end
+            mut j := 1
+            until j < width:
+                b := Byte(bytes, i + j)
+                if b < 128 or b > 191: ret false end
+                j += 1
+            end
+            b := Byte(bytes, i + 1)
+            if a == 224 and b < 160: ret false end
+            if a == 237 and b >= 160: ret false end
+            if a == 240 and b < 144: ret false end
+            if a == 244 and b >= 144: ret false end
+        end
+        if a < 32 and a != 9 and a != 10 and a != 13: ret false end
+        if a == 127: ret false end
+        i += width
+    end
+    ret true
+end
+
+pub func Normalize(value: str): str:
+    bytes := (value as void*) as i8*
+    mut skip := 0
+    if value.len() >= 3:
+        if Byte(bytes, 0) == 239 and Byte(bytes, 1) == 187 and Byte(bytes, 2) == 191: skip = 3 end
+    end
+    body := value.substr(skip, value.len() - skip)
+    defer mem.Free(body as void*)
+    lf := str.Replace(body, "\r\n", "\n")
+    defer mem.Free(lf as void*)
+    ret str.Replace(lf, "\r", "\n")
+end
+
+pub func Load(path: str): Input:
+    info := os.Stat(path)
+    if not info.exists: ret Input { error = "Input file does not exist." } end
+    if info.is_dir: ret Input { error = "Expected a file, received a directory." } end
+    if info.size > 1048576: ret Input { error = "Input exceeds the 1 MiB limit." } end
+    file := os.Open(path, "rb")
+    if file == null: ret Input { error = "Cannot open input for reading." } end
+    defer io.Close(file)
+    // A bounded read also protects against a file growing after the size check.
+    raw := io.Read(file, 1048577 as u64)
+    defer mem.Free(raw as void*)
+    if raw.len() > 1048576: ret Input { error = "Input exceeds the 1 MiB limit." } end
+    if (raw.len() as i64) != info.size:
+        ret Input { error = "Input contains NUL bytes, changed during reading, or could not be read completely." }
+    end
+    if not ValidUTF8(raw): ret Input { error = "Input must be valid UTF-8 without control characters other than tab and line endings." } end
+    ret Input { ok = true, content = Normalize(raw) }
+end

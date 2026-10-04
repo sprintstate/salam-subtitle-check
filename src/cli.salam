@@ -1,0 +1,71 @@
+package cli
+
+include timestamp "timestamp.salam"
+
+pub struct Options:
+    pub path: str = ""
+    pub json: bool = false
+    pub strict: bool = false
+    pub help: bool = false
+    pub max_cps: int = 20
+    pub max_line: int = 42
+    pub error: str = ""
+end
+
+// Argument strings are borrowed from os.Args().
+pub func Parse(args: Vector<str>): Options:
+    mut result := Options {}
+    mut positional := false
+    mut i := 1
+    until i < args.len():
+        arg := args.get(i)
+        if positional:
+            if result.path != "":
+                result.error = "Expected exactly one input file."
+                ret result
+            end
+            result.path = arg
+        else arg == "--": positional = true
+        else arg == "--help" or arg == "-h": result.help = true
+        else arg == "--json": result.json = true
+        else arg == "--strict": result.strict = true
+        else arg == "--max-cps" or arg == "--max-line":
+            i += 1
+            if i >= args.len():
+                result.error = "A numeric option is missing its value."
+                ret result
+            end
+            number := timestamp.PositiveInteger(args.get(i))
+            if number < 1 or number > 1000:
+                result.error = "Limits must be integers from 1 to 1000."
+                ret result
+            end
+            if arg == "--max-cps": result.max_cps = number
+            else:
+                result.max_line = number end
+        else arg.find("-") == 0:
+            result.error = "Unknown option. Use -- before a filename starting with a dash."
+            ret result
+        else:
+            if result.path != "":
+                result.error = "Expected exactly one input file."
+                ret result
+            end
+            result.path = arg
+        end
+        i += 1
+    end
+    if not result.help and result.path == "": result.error = "An input file is required." end
+    ret result
+end
+
+pub func Help():
+    println "Salam Subtitle Check - offline UTF-8 SRT validator"
+    println "Usage: subtitle-check [options] [--] FILE.srt"
+    println "  --json          Emit a machine-readable report"
+    println "  --strict        Fail on warnings as well as errors"
+    println "  --max-cps N     Reading-speed limit (default 20; range 1..1000)"
+    println "  --max-line N    Characters per line (default 42; range 1..1000)"
+    println "  -h, --help      Show this help"
+    println "Exit: 0 accepted, 1 subtitle diagnostics, 2 usage or input failure"
+end
