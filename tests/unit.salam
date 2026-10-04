@@ -1,0 +1,30 @@
+import testing
+
+include timestamp "../src/timestamp.salam"
+include model "../src/model.salam"
+
+func main: int:
+    testing.AssertEqInt(timestamp.Parse("00:00:00,000"), 0)
+    testing.AssertEqInt(timestamp.Parse("01:02:03,004"), 3723004)
+    testing.AssertEqInt(timestamp.Parse("99:59:59,999"), 359999999)
+    testing.AssertEqInt(timestamp.Parse("00:60:00,000"), -1)
+    testing.AssertEqInt(timestamp.Parse("00:00:60,000"), -1)
+    testing.AssertEqInt(timestamp.Parse("0:00:00,000"), -1)
+    testing.AssertEqInt(timestamp.Parse("00:00:00.000"), -1)
+    testing.AssertEqInt(timestamp.Parse("00:00:00,00x"), -1)
+    testing.AssertEqInt(timestamp.Parse("-1:00:00,000"), -1)
+    testing.AssertEqInt(timestamp.Parse(" 00:00:00,000"), -1)
+    testing.AssertEqInt(timestamp.Parse("00:00:00,000 "), -1)
+    testing.AssertEqInt(timestamp.PositiveInteger("1"), 1)
+    testing.AssertEqInt(timestamp.PositiveInteger("999999999"), 999999999)
+    testing.AssertEqInt(timestamp.PositiveInteger("1000000000"), -1)
+    testing.AssertEqInt(timestamp.PositiveInteger("12x"), -1)
+    testing.AssertEqInt(timestamp.PositiveInteger("0"), -1)
+    testing.AssertEqInt(timestamp.PositiveInteger(""), -1)
+    testing.AssertEqInt(timestamp.PositiveInteger("-1"), -1)
+    mut doc := model.NewDocument()
+    model.Add(doc, "error", "E_TEST", 3, 1, "A diagnostic")
+    testing.AssertEqInt(doc.diagnostics.len(), 1)
+    testing.AssertEqStr(doc.diagnostics.get(0).code, "E_TEST")
+    ret testing.Summary() > 0 ? 1 : 0
+end

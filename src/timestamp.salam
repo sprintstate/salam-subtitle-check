@@ -1,0 +1,34 @@
+package timestamp
+
+// SRT timestamps are exactly HH:MM:SS,mmm; -1 means invalid input.
+pub func Parse(value: str): int:
+    if value.len() != 12: ret 0 - 1 end
+    bytes := (value as void*) as i8*
+    if bytes[2] != 58 or bytes[5] != 58 or bytes[8] != 44:
+        ret 0 - 1
+    end
+    repeat 12 in i:
+        if i != 2 and i != 5 and i != 8:
+            if bytes[i] < 48 or bytes[i] > 57: ret 0 - 1 end
+        end
+    end
+    hours := ((bytes[0] as int) - 48) * 10 + bytes[1] - 48
+    minutes := ((bytes[3] as int) - 48) * 10 + bytes[4] - 48
+    seconds := ((bytes[6] as int) - 48) * 10 + bytes[7] - 48
+    millis := ((bytes[9] as int) - 48) * 100 + ((bytes[10] as int) - 48) * 10 + bytes[11] - 48
+    if minutes > 59 or seconds > 59: ret 0 - 1 end
+    ret ((hours * 60 + minutes) * 60 + seconds) * 1000 + millis
+end
+
+// Number parsing is deliberately bounded: no overflow or partial conversion.
+pub func PositiveInteger(value: str): int:
+    if value.len() == 0 or value.len() > 9: ret 0 - 1 end
+    bytes := (value as void*) as i8*
+    mut number := 0
+    repeat value.len() in i:
+        if bytes[i] < 48 or bytes[i] > 57: ret 0 - 1 end
+        number = number * 10 + bytes[i] - 48
+    end
+    if number == 0: ret 0 - 1 end
+    ret number
+end

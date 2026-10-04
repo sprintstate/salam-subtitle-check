@@ -1,0 +1,36 @@
+package model
+
+pub struct Cue:
+    pub number: int = 0
+    pub line: int = 0
+    pub start_ms: int = 0
+    pub end_ms: int = 0
+    pub text: str = ""
+end
+
+pub struct Diagnostic:
+    pub severity: str = "error"
+    pub code: str = ""
+    pub line: int = 0
+    pub cue: int = 0
+    pub message: str = ""
+end
+
+pub struct Document:
+    pub cues: Vector<Cue>
+    pub diagnostics: Vector<Diagnostic>
+end
+
+pub func NewDocument(): Document:
+    ret Document {
+        cues = Vector {} as Vector<Cue>, diagnostics = Vector {} as Vector<Diagnostic>
+    }
+end
+
+pub func Add(doc &: Document, severity: str, code: str, line: int, cue: int, message: str):
+    doc.diagnostics.push(
+        Diagnostic {
+            severity = severity, code = code, line = line, cue = cue, message = message
+        }
+    )
+end
