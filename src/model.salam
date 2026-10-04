@@ -1,5 +1,8 @@
 package model
 
+import str
+import mem
+
 pub struct Cue:
     pub number: int = 0
     pub line: int = 0
@@ -30,7 +33,15 @@ end
 pub func Add(doc &: Document, severity: str, code: str, line: int, cue: int, message: str):
     doc.diagnostics.push(
         Diagnostic {
-            severity = severity, code = code, line = line, cue = cue, message = message
+            severity = severity, code = code, line = line, cue = cue, message = str.Clone(message)
         }
     )
+end
+
+// Parsed documents own the joined cue text and diagnostic messages.
+pub func Release(doc &: Document):
+    repeat doc.cues.len() in i: mem.Free(doc.cues.get(i).text as void*) end
+    repeat doc.diagnostics.len() in i: mem.Free(doc.diagnostics.get(i).message as void*) end
+    doc.cues.free()
+    doc.diagnostics.free()
 end

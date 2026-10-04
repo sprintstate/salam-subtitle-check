@@ -1,0 +1,92 @@
+package parser
+
+import str
+import mem
+
+include model "model.salam"
+include timestamp "timestamp.salam"
+
+func ParseBlock(lines: Vector<str>, first: int, last: int, doc &: model.Document):
+    index_text := lines.get(first).trim()
+    defer mem.Free(index_text as void*)
+    number := timestamp.PositiveInteger(index_text)
+    if number < 0:
+        model.Add(doc, "error", "E_NUMBER", first + 1, 0, "Expected a positive numeric cue identifier (up to nine digits).")
+    end
+    if last - first < 2:
+        model.Add(doc, "error", "E_TIMING", first + 1, number, "Cue has no timing line.")
+        ret
+    end
+    timing := lines.get(first + 1)
+    arrow := timing.find("-->")
+    if arrow < 0:
+        model.Add(doc, "error", "E_TIMING", first + 2, number, "Expected START --> END on the timing line.")
+        ret
+    end
+    raw_start := timing.substr(0, arrow)
+    raw_end := timing.substr(arrow + 3, timing.len() - arrow - 3)
+    start_text := raw_start.trim()
+    end_text := raw_end.trim()
+    defer mem.Free(raw_start as void*)
+    defer mem.Free(raw_end as void*)
+    defer mem.Free(start_text as void*)
+    defer mem.Free(end_text as void*)
+    start_ms := timestamp.Parse(start_text)
+    end_ms := timestamp.Parse(end_text)
+    if start_ms < 0 or end_ms < 0:
+        model.Add(doc, "error", "E_TIMESTAMP", first + 2, number, "Use HH:MM:SS,mmm with minutes/seconds below 60; positioning extensions are not supported.")
+        ret
+    end
+    mut text_lines := Vector {} as Vector<str>
+    defer text_lines.free()
+    mut i := first + 2
+    until i < last:
+        text_lines.push(lines.get(i))
+        i += 1
+    end
+    text := str.Join(text_lines, "\n")
+    if text_lines.len() == 0:
+        model.Add(doc, "error", "E_TEXT", first + 2, number, "Cue has no subtitle text.")
+    end
+    doc.cues.push(
+        model.Cue {
+            number = number, line = first + 1, start_ms = start_ms, end_ms = end_ms, text = text
+        }
+    )
+end
+
+// Input is UTF-8 with LF line endings; source loading owns encoding checks.
+pub func Parse(content: str): model.Document:
+    mut doc := model.NewDocument()
+    lines := content.split("\n")
+    defer lines.free()
+    mut first := 0
+    mut blocks := 0
+    repeat lines.len() in i:
+        trimmed := lines.get(i).trim()
+        blank := trimmed.len() == 0
+        mem.Free(trimmed as void*)
+        if blank:
+            if i > first:
+                if blocks >= 5000:
+                    model.Add(doc, "error", "E_LIMIT", first + 1, 0, "Input exceeds the 5000 cue-block limit.")
+                    ret doc
+                end
+                ParseBlock(lines, first, i, doc)
+                blocks += 1
+            end
+            first = i + 1
+        end
+    end
+    if first < lines.len():
+        if blocks >= 5000:
+            model.Add(doc, "error", "E_LIMIT", first + 1, 0, "Input exceeds the 5000 cue-block limit.")
+            ret doc
+        end
+        ParseBlock(lines, first, lines.len(), doc)
+    end
+    if doc.cues.len() == 0 and doc.diagnostics.len() == 0:
+        model.Add(doc, "error", "E_EMPTY", 1, 0, "No subtitle cues found.")
+    end
+    ret doc
+end

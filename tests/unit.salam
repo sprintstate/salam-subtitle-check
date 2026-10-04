@@ -1,7 +1,10 @@
 import testing
+import str
+import mem
 
 include timestamp "../src/timestamp.salam"
 include model "../src/model.salam"
+include parser "../src/parser.salam"
 
 func main: int:
     testing.AssertEqInt(timestamp.Parse("00:00:00,000"), 0)
@@ -26,5 +29,47 @@ func main: int:
     model.Add(doc, "error", "E_TEST", 3, 1, "A diagnostic")
     testing.AssertEqInt(doc.diagnostics.len(), 1)
     testing.AssertEqStr(doc.diagnostics.get(0).code, "E_TEST")
+    model.Release(doc)
+    mut valid := parser.Parse("1\n00:00:01,000 --> 00:00:03,000\nHello\nworld\n\n2\n00:00:04,000 --> 00:00:06,000\nПривет!")
+    testing.AssertEqInt(valid.cues.len(), 2)
+    testing.AssertEqInt(valid.diagnostics.len(), 0)
+    testing.AssertEqStr(valid.cues.get(0).text, "Hello\nworld")
+    testing.AssertEqInt(valid.cues.get(1).line, 6)
+    testing.AssertEqInt(valid.cues.get(1).start_ms, 4000)
+    model.Release(valid)
+    mut recovery := parser.Parse("x\nwrong\ntext\n\n2\n00:00:00,000 --> 00:00:02,000\nRecovered\n")
+    testing.AssertEqInt(recovery.cues.len(), 1)
+    testing.AssertEqInt(recovery.diagnostics.len(), 2)
+    testing.AssertEqStr(recovery.diagnostics.get(0).code, "E_NUMBER")
+    testing.AssertEqStr(recovery.diagnostics.get(1).code, "E_TIMING")
+    testing.AssertEqInt(recovery.cues.get(0).line, 5)
+    model.Release(recovery)
+    mut empty := parser.Parse("\n  \n")
+    testing.AssertEqStr(empty.diagnostics.get(0).code, "E_EMPTY")
+    model.Release(empty)
+    mut missing := parser.Parse("1\n00:00:00,000 --> 00:00:01,000\n\n")
+    testing.AssertEqStr(missing.diagnostics.get(0).code, "E_TEXT")
+    model.Release(missing)
+    mut bad_time := parser.Parse("1\n00:00:00.000 --> 00:00:01,000\nText")
+    testing.AssertEqStr(bad_time.diagnostics.get(0).code, "E_TIMESTAMP")
+    model.Release(bad_time)
+    mut builder := str.NewBuilder()
+    repeat 5000:
+        str.BufAppend(builder, "1\n00:00:00,000 --> 00:00:01,000\nx\n\n")
+    end
+    str.BufAppend(builder, "\n\n")
+    maximum_text := str.BufStr(builder)
+    mut maximum := parser.Parse(maximum_text)
+    testing.AssertEqInt(maximum.cues.len(), 5000)
+    testing.AssertEqInt(maximum.diagnostics.len(), 0)
+    model.Release(maximum)
+    mem.Free(maximum_text as void*)
+    str.BufAppend(builder, "1\n00:00:00,000 --> 00:00:01,000\nx")
+    excessive_text := str.BufStr(builder)
+    mut excessive := parser.Parse(excessive_text)
+    testing.AssertEqStr(excessive.diagnostics.get(0).code, "E_LIMIT")
+    model.Release(excessive)
+    mem.Free(excessive_text as void*)
+    str.BufFree(builder)
     ret testing.Summary() > 0 ? 1 : 0
 end
