@@ -1,0 +1,11 @@
+package text_report
+
+include model "model.salam"
+
+pub func Write(path: str, doc: model.Document):
+    repeat doc.diagnostics.len() in i:
+        d := doc.diagnostics.get(i)
+        println path, ":", d.line, ":", d.severity, d.code, "(cue", d.cue, ")", d.message
+    end
+    println "Checked", doc.cues.len(), "cues:", model.Count(doc, "error"), "errors,", model.Count(doc, "warning"), "warnings."
+end

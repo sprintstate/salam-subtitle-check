@@ -42,7 +42,8 @@ pub func Parse(args: Vector<str>): Options:
             end
             if arg == "--max-cps": result.max_cps = number
             else:
-                result.max_line = number end
+                result.max_line = number
+            end
         else arg.find("-") == 0:
             result.error = "Unknown option. Use -- before a filename starting with a dash."
             ret result

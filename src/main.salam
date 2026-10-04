@@ -1,0 +1,47 @@
+import os
+import mem
+
+include cli "cli.salam"
+include source "source.salam"
+include parser "parser.salam"
+include model "model.salam"
+include timing "timing.salam"
+include readability "readability.salam"
+include text_report "text_report.salam"
+include json_report "json_report.salam"
+
+func main: int:
+    args := os.Args()
+    defer args.free()
+    options := cli.Parse(args)
+    if options.error != "":
+        if options.json: json_report.Failure(options.path, options.error)
+        else:
+            printerrln options.error
+            printerrln "Use --help for usage."
+        end
+        ret 2
+    end
+    if options.help:
+        cli.Help()
+        ret 0
+    end
+    loaded := source.Load(options.path)
+    if not loaded.ok:
+        if options.json: json_report.Failure(options.path, loaded.error)
+        else:
+            printerrln loaded.error end
+        ret 2
+    end
+    defer mem.Free(loaded.content as void*)
+    mut doc := parser.Parse(loaded.content)
+    defer model.Release(doc)
+    timing.Check(doc)
+    readability.Check(doc, options.max_cps, options.max_line)
+    mut result := 0
+    if model.Count(doc, "error") > 0 or (options.strict and model.Count(doc, "warning") > 0): result = 1 end
+    if options.json: json_report.Write(options.path, doc, result)
+    else:
+        text_report.Write(options.path, doc) end
+    ret result
+end

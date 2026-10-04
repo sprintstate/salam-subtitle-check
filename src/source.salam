@@ -28,7 +28,8 @@ pub func ValidUTF8(value: str): bool:
             else a >= 224 and a <= 239: width = 3
             else a >= 240 and a <= 244: width = 4
             else:
-                ret false end
+                ret false
+            end
             if i + width > length: ret false end
             mut j := 1
             until j < width:

@@ -1,0 +1,75 @@
+package json_report
+
+import str
+import mem
+
+include model "model.salam"
+
+func String(value: str):
+    quoted := Quote(value)
+    print quoted
+    mem.Free(quoted as void*)
+end
+
+pub func Quote(value: str): str:
+    mut builder := str.NewBuilder()
+    defer str.BufFree(builder)
+    str.BufAppend(builder, "\"")
+    bytes := (value as void*) as i8*
+    digits := ("0123456789abcdef" as void*) as i8*
+    repeat value.len() in i:
+        c := bytes[i] as int
+        if c == 34: str.BufAppend(builder, "\\\"")
+        else c == 92: str.BufAppend(builder, "\\\\")
+        else c >= 0 and c < 32:
+            escaped := mem.AllocateZeroed(7 as u64)
+            p := escaped as i8*
+            p[0] = 92 as i8
+            p[1] = 117 as i8
+            p[2] = 48 as i8
+            p[3] = 48 as i8
+            p[4] = digits[c / 16]
+            p[5] = digits[c % 16]
+            str.BufAppend(builder, escaped as str)
+            mem.Free(escaped)
+        else:
+            piece := value.substr(i, 1)
+            str.BufAppend(builder, piece)
+            mem.Free(piece as void*)
+        end
+    end
+    str.BufAppend(builder, "\"")
+    ret str.BufStr(builder)
+end
+
+pub func Failure(path: str, message: str):
+    print "{\"schema_version\":1,\"file\":"
+    String(path)
+    print ",\"exit_code\":2,\"fatal\":"
+    String(message)
+    println "}"
+end
+
+pub func Write(path: str, doc: model.Document, exit_code: int):
+    print "{\"schema_version\":1,\"file\":"
+    String(path)
+    print ",\"exit_code\":", exit_code
+    print ",\"cues\":", doc.cues.len()
+    print ",\"errors\":", model.Count(doc, "error")
+    print ",\"warnings\":", model.Count(doc, "warning")
+    print ",\"diagnostics\":["
+    repeat doc.diagnostics.len() in i:
+        if i > 0: print "," end
+        d := doc.diagnostics.get(i)
+        print "{\"severity\":"
+        String(d.severity)
+        print ",\"code\":"
+        String(d.code)
+        print ",\"line\":", d.line
+        print ",\"cue\":", d.cue
+        print ",\"message\":"
+        String(d.message)
+        print "}"
+    end
+    println "]}"
+end

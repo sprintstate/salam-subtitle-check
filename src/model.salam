@@ -38,6 +38,14 @@ pub func Add(doc &: Document, severity: str, code: str, line: int, cue: int, mes
     )
 end
 
+pub func Count(doc: Document, severity: str): int:
+    mut count := 0
+    repeat doc.diagnostics.len() in i:
+        if doc.diagnostics.get(i).severity == severity: count += 1 end
+    end
+    ret count
+end
+
 // Parsed documents own the joined cue text and diagnostic messages.
 pub func Release(doc &: Document):
     repeat doc.cues.len() in i: mem.Free(doc.cues.get(i).text as void*) end

@@ -9,6 +9,7 @@ include timing "../src/timing.salam"
 include readability "../src/readability.salam"
 include source "../src/source.salam"
 include cli "../src/cli.salam"
+include json_report "../src/json_report.salam"
 
 func Count(doc: model.Document, code: str): int:
     mut count := 0
@@ -123,5 +124,8 @@ func main: int:
     arguments.push("extra.srt")
     testing.Assert(cli.Parse(arguments).error != "")
     arguments.free()
+    quoted := json_report.Quote("a\"b\\c\n\tПривет")
+    testing.AssertEqStr(quoted, "\"a\\\"b\\\\c\\u000a\\u0009Привет\"")
+    mem.Free(quoted as void*)
     ret testing.Summary() > 0 ? 1 : 0
 end
