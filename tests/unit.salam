@@ -5,6 +5,16 @@ import mem
 include timestamp "../src/timestamp.salam"
 include model "../src/model.salam"
 include parser "../src/parser.salam"
+include timing "../src/timing.salam"
+include readability "../src/readability.salam"
+
+func Count(doc: model.Document, code: str): int:
+    mut count := 0
+    repeat doc.diagnostics.len() in i:
+        if doc.diagnostics.get(i).code == code: count += 1 end
+    end
+    ret count
+end
 
 func main: int:
     testing.AssertEqInt(timestamp.Parse("00:00:00,000"), 0)
@@ -71,5 +81,26 @@ func main: int:
     model.Release(excessive)
     mem.Free(excessive_text as void*)
     str.BufFree(builder)
+    mut overlaps := parser.Parse("1\n00:00:00,000 --> 00:00:06,000\nx\n\n2\n00:00:01,000 --> 00:00:02,000\ny\n\n4\n00:00:03,000 --> 00:00:04,000\nz")
+    timing.Check(overlaps)
+    testing.AssertEqInt(Count(overlaps, "W_OVERLAP"), 2)
+    testing.AssertEqInt(Count(overlaps, "W_SEQUENCE"), 1)
+    model.Release(overlaps)
+    mut durations := parser.Parse("1\n00:00:02,000 --> 00:00:02,000\nx\n\n2\n00:00:01,000 --> 00:00:00,000\ny\n\n3\n00:00:03,000 --> 00:00:03,499\nz\n\n4\n00:00:04,000 --> 00:00:11,001\nx")
+    timing.Check(durations)
+    testing.AssertEqInt(Count(durations, "E_DURATION"), 2)
+    testing.AssertEqInt(Count(durations, "W_ORDER"), 1)
+    testing.AssertEqInt(Count(durations, "W_SHORT"), 1)
+    testing.AssertEqInt(Count(durations, "W_LONG"), 1)
+    model.Release(durations)
+    mut unicode := parser.Parse("1\n00:00:00,000 --> 00:00:01,000\nПривет\n世界\n🙂")
+    readability.Check(unicode, 9, 6)
+    testing.AssertEqInt(Count(unicode, "W_WIDTH"), 0)
+    testing.AssertEqInt(Count(unicode, "W_CPS"), 0)
+    testing.AssertEqInt(Count(unicode, "W_LINES"), 1)
+    readability.Check(unicode, 8, 5)
+    testing.AssertEqInt(Count(unicode, "W_WIDTH"), 1)
+    testing.AssertEqInt(Count(unicode, "W_CPS"), 1)
+    model.Release(unicode)
     ret testing.Summary() > 0 ? 1 : 0
 end

@@ -1,4 +1,5 @@
 /build/
+/.salam-build/
 *.exe
 *.obj
 *.o

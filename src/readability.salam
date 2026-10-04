@@ -1,0 +1,33 @@
+package readability
+
+import str
+import mem
+
+include model "model.salam"
+
+// Count Unicode code points, including spaces and literal markup, excluding LF.
+// These are editing suggestions, not requirements of the SRT format.
+pub func Check(doc &: model.Document, max_cps: int, max_line: int):
+    repeat doc.cues.len() in i:
+        cue := doc.cues.get(i)
+        lines := cue.text.split("\n")
+        mut characters := 0
+        if lines.len() > 2:
+            model.Add(doc, "warning", "W_LINES", cue.line + 2, cue.number, "Cue has more than two text lines.")
+        end
+        repeat lines.len() in j:
+            line := lines.get(j)
+            count := str.CharCount(line)
+            characters += count
+            if count > max_line:
+                model.Add(doc, "warning", "W_WIDTH", cue.line + 2 + j, cue.number, "Text line exceeds the configured Unicode character limit.")
+            end
+            mem.Free(line as void*)
+        end
+        lines.free()
+        duration := cue.end_ms - cue.start_ms
+        if duration > 0 and (characters as i64) * 1000 > (max_cps as i64) * duration:
+            model.Add(doc, "warning", "W_CPS", cue.line + 2, cue.number, "Reading speed exceeds the configured characters-per-second limit.")
+        end
+    end
+end

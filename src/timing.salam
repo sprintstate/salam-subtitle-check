@@ -1,0 +1,33 @@
+package timing
+
+include model "model.salam"
+
+pub func Check(doc &: model.Document):
+    mut latest_end := 0
+    mut previous_start := 0
+    repeat doc.cues.len() in i:
+        cue := doc.cues.get(i)
+        if cue.number > 0 and cue.number != i + 1:
+            model.Add(doc, "warning", "W_SEQUENCE", cue.line, cue.number, "Cue identifiers should start at 1 and increase by one.")
+        end
+        duration := cue.end_ms - cue.start_ms
+        if duration <= 0:
+            model.Add(doc, "error", "E_DURATION", cue.line + 1, cue.number, "End time must be later than start time.")
+        else:
+            if duration < 500:
+                model.Add(doc, "warning", "W_SHORT", cue.line + 1, cue.number, "Cue is displayed for less than 500 ms.")
+            end
+            if duration > 7000:
+                model.Add(doc, "warning", "W_LONG", cue.line + 1, cue.number, "Cue is displayed for more than 7 seconds.")
+            end
+            if i > 0 and cue.start_ms < latest_end:
+                model.Add(doc, "warning", "W_OVERLAP", cue.line + 1, cue.number, "Cue overlaps an earlier valid-duration cue.")
+            end
+            if cue.end_ms > latest_end: latest_end = cue.end_ms end
+        end
+        if i > 0 and cue.start_ms < previous_start:
+            model.Add(doc, "warning", "W_ORDER", cue.line + 1, cue.number, "Start time is earlier than the preceding cue's start time.")
+        end
+        previous_start = cue.start_ms
+    end
+end
