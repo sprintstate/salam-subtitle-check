@@ -6,6 +6,11 @@ import mem
 include model "model.salam"
 include timestamp "timestamp.salam"
 
+func ReleaseLines(lines: Vector<str>):
+    repeat lines.len() in i: mem.Free(lines.get(i) as void*) end
+    lines.free()
+end
+
 func ParseBlock(lines: Vector<str>, first: int, last: int, doc &: model.Document):
     index_text := lines.get(first).trim()
     defer mem.Free(index_text as void*)
@@ -59,7 +64,7 @@ end
 pub func Parse(content: str): model.Document:
     mut doc := model.NewDocument()
     lines := content.split("\n")
-    defer lines.free()
+    defer ReleaseLines(lines)
     mut first := 0
     mut blocks := 0
     repeat lines.len() in i:

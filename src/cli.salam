@@ -1,6 +1,16 @@
 package cli
 
+import os
+import mem
+
 include timestamp "timestamp.salam"
+
+if SALAM_OS_WINDOWS:
+    extern:
+        func __wgetmainargs(count: void*, values: void*, environment: void*, wildcards: int, startup: void*): int
+        func WideCharToMultiByte(codepage: u32, flags: u32, src: void*, srclen: i32, dst: void*, dstlen: i32, def: void*, used: void*): i32
+    end
+end
 
 pub struct Options:
     pub path: str = ""
@@ -12,7 +22,54 @@ pub struct Options:
     pub error: str = ""
 end
 
-// Argument strings are borrowed from os.Args().
+// Salam 0.4.8 args() uses narrow Windows argv. Read the CRT's wide argv instead.
+// Returned argument strings are owned and must be released with ReleaseArgs.
+pub func Args(): Vector<str>:
+    mut result := Vector {} as Vector<str>
+    if SALAM_OS_WINDOWS:
+        count := mem.AllocateZeroed(4 as u64) as int*
+        values := mem.AllocateZeroed(sizeof(void*) as u64) as void**
+        environment := mem.AllocateZeroed(sizeof(void*) as u64)
+        startup := mem.AllocateZeroed(4 as u64)
+        defer mem.Free(count as void*)
+        defer mem.Free(values as void*)
+        defer mem.Free(environment)
+        defer mem.Free(startup)
+        status := __wgetmainargs(count as void*, values as void*, environment, 0, startup)
+        if status < 0: ret result end
+        wide := values[0] as void**
+        repeat count[0] in i:
+            size := WideCharToMultiByte(65001 as u32, 128 as u32, wide[i], -1, null, 0, null, null)
+            if size <= 0:
+                ReleaseArgs(result)
+                ret Vector {}
+            end
+            buffer := mem.AllocateZeroed(size as u64)
+            written := WideCharToMultiByte(65001 as u32, 128 as u32, wide[i], -1, buffer, size, null, null)
+            if written != size:
+                mem.Free(buffer)
+                ReleaseArgs(result)
+                ret Vector {}
+            end
+            result.push(buffer as str)
+        end
+    else:
+        native := os.Args()
+        defer native.free()
+        repeat native.len() in i:
+            arg := native.get(i)
+            result.push(arg.substr(0, arg.len()))
+        end
+    end
+    ret result
+end
+
+pub func ReleaseArgs(args: Vector<str>):
+    repeat args.len() in i: mem.Free(args.get(i) as void*) end
+    args.free()
+end
+
+// Parsed options borrow strings from Args().
 pub func Parse(args: Vector<str>): Options:
     mut result := Options {}
     mut positional := false
