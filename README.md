@@ -10,9 +10,11 @@ data over the network, or require an account.
 
 ## Build and run
 
-The verified configuration is **Windows x64, Salam 0.4.8, GCC 10.3.0 (TDM-GCC)**.
+The verified configurations are **Windows x64, Salam 0.4.8, GCC 10.3.0
+(TDM-GCC)** and **Linux x64 under WSL Ubuntu, Salam 0.4.8 with its embedded
+LLVM/LLD musl target**.
 Download Salam from the [official releases](https://github.com/SalamLang/Salam/releases/tag/v0.4.8)
-and make `salam` and `gcc` available in your terminal. The compiler and standard
+and, for the Windows commands, make `salam` and `gcc` available in your terminal. The compiler and standard
 library are not vendored into this repository. No third-party Salam packages
 are required.
 
@@ -31,8 +33,23 @@ Checked 2 cues: 0 errors, 0 warnings.
 ```
 
 `--cc=gcc` also avoids a Salam 0.4.8 bundled-TCC launch failure when its
-installation path contains spaces. Other operating systems and compilers have
-not been verified for this project.
+installation path contains spaces.
+
+On Linux x64, use the official Linux release, which includes the LLVM/LLD
+toolchain and musl sysroot. GCC is not needed for this command:
+
+```sh
+mkdir -p build/linux
+salam build src/main.salam --target=x86_64-linux-musl --output=build/linux/subtitle-check --log-level=error
+./build/linux/subtitle-check examples/clean.srt
+```
+
+Other operating systems and architectures have not been verified for this
+project. The Linux archive tested on 2026-10-05 had SHA-256
+`55810d1dc85dde83b502ec96a97dd3d9ac94c4d4ad596be1517a368491b48d88`.
+Its `salam version` output reports 0.4.8 and source commit
+`f9fdc5522e8862d98fd3ba32375dda376a90156f-dirty`; this is the official
+release asset's embedded build metadata.
 
 ## Options and reports
 
@@ -108,12 +125,21 @@ not for the compiled application.
 ./scripts/check.ps1 -Salam 'C:\tools\salam\salam.exe' -Compiler 'C:\tools\gcc\bin\gcc.exe'
 ```
 
+On Linux x64:
+
+```sh
+sh scripts/check.sh
+# Or use a compiler extracted outside PATH:
+SALAM='/path/to/salam-linux-x86_64/salam' sh scripts/check.sh
+```
+
 The script builds the application and native Salam tests, then runs the CLI
 through Python's standard library. The current suite has **55 native assertions
 and 39 end-to-end cases**. It covers timestamp boundaries, parser recovery,
 nested overlaps, Unicode character counts and filenames, JSON decoding,
 exit codes, all three newline styles, BOMs, malformed UTF-8, input limits,
-and unchanged file hashes after inspection.
+and unchanged file hashes after inspection. Both suites passed on the Windows
+and Linux configurations above; no Docker execution is claimed.
 
 For manual inspection, the examples include a clean file, a warning-only file,
 and a file with two errors. All examples were written for this project.
